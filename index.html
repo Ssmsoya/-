@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#101b35" />
+  <title>Панель путешественника</title>
+  <link rel="stylesheet" href="styles.css" />
+  
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#main"><span class="brand-icon">✈</span><span>WAYPOINT<small>Панель путешественника</small></span></a>
+      <div class="sidebar-section"><span class="eyebrow">ВАШИ ИНСТРУМЕНТЫ</span>
+        <button class="add-button" data-add="todo"><span>☑</span> Список дел <b>+</b></button>
+        <button class="add-button" data-add="weather"><span>☀</span> Погода <b>+</b></button>
+        <button class="add-button" data-add="currency"><span>↗</span> Курсы валют <b>+</b></button>
+        <button class="add-button" type="button" data-add="clock"><span>◷</span> Мировое время <b>+</b></button>
+        <button class="add-button" type="button" data-add="packing"><span>▣</span> Чемодан <b>+</b></button>
+        <button class="add-button" type="button" data-add="trips"><span>▦</span> Календарь поездок <b>+</b></button>
+        <button class="add-button" type="button" data-add="places"><span>◎</span> Мои путешествия <b>+</b></button>
+      </div>
+      <div class="sidebar-note"><span>✦</span><p>Ваша поездка, ваши правила. Перетаскивайте карточки за заголовок, чтобы изменить порядок.</p></div>
+    </aside>
+    <main id="main" class="main-content">
+      <header class="topbar"><span class="topbar-label">ЛИЧНОЕ ПРОСТРАНСТВО / ОБЗОР</span><span class="status-pill"><i></i> ГОТОВ К ПУТЕШЕСТВИЮ</span></header>
+      <section class="hero"><div><span class="eyebrow hero-kicker">ВАШ КОМАНДНЫЙ ЦЕНТР</span><h1>Всё для путешествия.<br><em>В одном месте.</em></h1><p>Планируйте поездки, собирайте чемодан, следите за временем, погодой и курсами валют — всё в одном месте.</p></div><div class="hero-art" aria-hidden="true"><span class="orb orb-one"></span><span class="orb orb-two"></span><span class="plane">✈</span></div></section>
+      <section class="dashboard-section" aria-label="Виджеты"><div class="section-heading"><div><span class="eyebrow">РАБОЧЕЕ ПРОСТРАНСТВО</span><h2>Мои виджеты <span id="widget-count">0</span></h2></div><button id="reset-dashboard" class="secondary-button" type="button">↺ Восстановить панель</button></div><p id="announcement" class="announcement" role="status" aria-live="polite"></p><div id="dashboard" class="widget-grid"></div><div id="empty-state" class="empty-state" hidden><span>✦</span><h3>Пока нет виджетов</h3><p>Добавьте нужные инструменты с помощью кнопок слева или сверху.</p></div></section>
+      <footer>WAYPOINT · Практическое задание №2 <span>Сделано на HTML, CSS и JavaScript</span></footer>
+    </main>
+  </div>
+<script>
+// js/UIComponent.js
+class UIComponent {
+  constructor(id, title, type, icon, subtitle, onChange = () => {}, onRemove = () => {}) {
+    this.id = id;
+    this.title = title;
+    this.type = type;
+    this.icon = icon;
+    this.subtitle = subtitle;
+    this.onChange = onChange;
+    this.onRemove = onRemove;
+    this.collapsed = false;
+    this.root = null;
+    this.controller = new AbortController();
+  }
+
+  render() {
+    const card = document.createElement('article');
+    card.className = 'widget';
+    card.dataset.type = this.type;
+    card.dataset.id = this.id;
+    const header = document.createElement('div');
+    header.className = 'widget-header';
+    const icon = document.createElement('span');
+    icon.className = 'widget-icon';
+    icon.textContent = this.icon;
+    const titleBox = document.createElement('div');
+    titleBox.className = 'widget-title';
+    const heading = document.createElement('h3');
+    heading.textContent = this.title;
+    const subtitle = document.createElement('p');
+    subtitle.textContent = this.subtitle;
+    titleBox.append(heading, subtitle);
+    const actions = document.createElement('div');
+    actions.className = 'widget-actions';
+    const collapse = document.createElement('button');
+    collapse.type = 'button';
+    collapse.className = 'icon-button';
+    collapse.setAttribute('aria-label', 'Свернуть виджет');
+    collapse.title = 'Свернуть';
+    collapse.textContent = '−';
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'icon-button delete';
+    remove.setAttribute('aria-label', 'Удалить виджет');
+    remove.title = 'Удалить';
+    remove.textContent = '×';
+    actions.append(collapse, remove);
+    header.append(icon, titleBox, actions);
+    const body = document.createElement('div');
+    body.className = 'widget-body';
+    card.append(header, body);
+    this.root = card;
+    this.body = body;
+    this.collapseButton = collapse;
+    collapse.addEventListener('click', () => this.setCollapsed(!this.collapsed), { signal: this.controller.signal });
+    remove.addEventListener('click', () => this.onRemove(this.id), { signal: this.controller.signal });
+    this.renderContent();
+    return card;
+  }
+
+  setCollapsed(value, notify = true) {
+    this.collapsed = Boolean(value);
+    if (this.root) this.root.classList.toggle('collapsed', this.collapsed);
+    if (this.collapseButton) {
+      this.collapseButton.textContent = this.collapsed ? '+' : '−';
+      this.collapseButton.title = this.collapsed ? 'Развернуть' : 'Свернуть';
+      this.collapseButton.setAttribute('aria-label', this.collapseButton.title + ' виджет');
+    }
+    if (notify) this.onChange();
+  }
+
+  renderContent() {}
+  serialize() { return { id: this.id, type: this.type, collapsed: this.collapsed }; }
+  destroy() { this.controller.abort(); this.root?.remove(); this.root = null; }
+}
+
+// js/widgets/ToDoWidget.js
+
+class ToDoWidget extends UIComponent {
+  constructor(id, onChange, onRemove, tasks = []) {
+    super(id, 'Список дел', 'todo', '☑', 'Всё важное под рукой', onChange, onRemove);
+    this.tasks = Array.isArray(tasks) ? tasks.filter(t => t && typeof t.text === 'string' && typeof t.id === 'string').map(t => ({ id: t.id, text: t.text.slice(0, 200), done: Boolean(t.done) })) : [];
+  }
+
+  renderContent() {
+    const form = document.createElement('form');
+    form.className = 'todo-form';
+    const input = document.createElement('input');
+    input.className = 'text-input';
+    input.type = 'text';
+    input.maxLength = 200;
+    input.placeholder = 'Что нужно сделать?';
+    input.setAttribute('aria-label', 'Новая задача');
+    const add = document.createElement('button');
+    add.type = 'submit';
+    add.className = 'primary-button';
+    add.textContent = '+ Добавить';
+    form.append(input, add);
+    const list = document.createElement('ul');
+    list.className = 'todo-list';
+    const summary = document.createElement('p');
+    summary.className = 'todo-summary';
+    this.body.append(form, list, summary);
+    this.list = list;
+    this.summary = summary;
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      this.tasks.push({ id: (globalThis.crypto?.randomUUID?.() || `t-${Date.now()}-${Math.random().toString(36).slice(2)}`), text, done: false });
+      input.value = '';
+      this.updateTasks();
+    }, { signal: this.controller.signal });
+    list.addEventListener('change', event => {
+      if (!event.target.matches('input[type="checkbox"]')) return;
+      const task = this.tasks.find(t => t.id === event.target.dataset.taskId);
+      if (task) { task.done = event.target.checked; this.updateTasks(); }
+    }, { signal: this.controller.signal });
+    list.addEventListener('click', event => {
+      const button = event.target.closest('button[data-task-id]');
+      if (!button) return;
+      this.tasks = this.tasks.filter(t => t.id !== button.dataset.taskId);
+      this.updateTasks();
+    }, { signal: this.controller.signal });
+    this.updateTasks(false);
+  }
+
+  updateTasks(notify = true) {
+    this.list.replaceChildren();
+    if (this.tasks.length === 0) {
+      const empty = document.createElement('li');
+      empty.className = 'muted';
+      empty.textContent = 'Задач пока нет. Добавьте первую!';
+      this.list.append(empty);
+    }
+    for (const task of this.tasks) {
+      const li = document.createElement('li');
+      li.className = `todo-item${task.done ? ' done' : ''}`;
+      const check = document.createElement('input');
+      check.type = 'checkbox';
+      check.checked = task.done;
+      check.dataset.taskId = task.id;
+      check.setAttribute('aria-label', `Выполнено: ${task.text}`);
+      const span = document.createElement('span');
+      span.className = 'todo-text';
+      span.textContent = task.text;
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'task-delete';
+      remove.dataset.taskId = task.id;
+      remove.textContent = '×';
+      remove.setAttribute('aria-label', `Удалить задачу: ${task.text}`);
+      li.append(check, span, remove);
+      this.list.append(li);
+    }
+    const done = this.tasks.filter(t => t.done).length;
+    this.summary.textContent = `Выполнено ${done} из ${this.tasks.length}`;
+    if (notify) this.onChange();
+  }
+
+  serialize() { return { ...super.serialize(), tasks: this.tasks }; }
+}
+
+// js/widgets/WeatherWidget.js
+const CODES = {0:['Ясно','☀️'],1:['Преимущественно ясно','🌤️'],2:['Переменная облачность','⛅'],3:['Облачно','☁️'],45:['Туман','🌫️'],48:['Туман','🌫️'],51:['Морось','🌦️'],53:['Морось','🌦️'],55:['Морось','🌧️'],61:['Дождь','🌧️'],63:['Дождь','🌧️'],65:['Сильный дождь','🌧️'],71:['Снег','🌨️'],73:['Снег','🌨️'],75:['Снег','❄️'],80:['Ливень','🌧️'],81:['Ливень','🌧️'],82:['Ливень','⛈️'],95:['Гроза','⛈️'],96:['Гроза','⛈️'],99:['Гроза','⛈️']};
+const DEFAULT_CITY = { name:'Таллин', country:'Эстония', latitude:59.437, longitude:24.7536, id:588409 };
+const el = (tag, className, text) => {const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node;};
+class WeatherWidget extends UIComponent {
+  constructor(id,onChange,onRemove,city=DEFAULT_CITY){
+    super(id,'Погода','weather','☀','Погода в любом городе',onChange,onRemove);
+    this.city = city && typeof city==='object' && Number.isFinite(Number(city.latitude)) && Number.isFinite(Number(city.longitude)) && typeof city.name==='string' ? {name:city.name.slice(0,100),country:String(city.country||'').slice(0,100),latitude:Number(city.latitude),longitude:Number(city.longitude),id:city.id||null} : DEFAULT_CITY;
+    this.requestController=null;this.searchController=null;this.searchTimer=null;
+  }
+  renderContent(){
+    const label=el('label','field-label','ПОИСК ГОРОДА');label.htmlFor=`city-${this.id}`;
+    const searchWrap=el('div','city-search-wrap');
+    const input=el('input','text-input city-search');input.id=label.htmlFor;input.type='search';input.placeholder='Начните вводить город…';input.autocomplete='off';input.setAttribute('aria-label','Поиск города');
+    const results=el('div','city-results');results.hidden=true;results.setAttribute('role','listbox');
+    const selected=el('div','selected-city',`📍 ${this.city.name}${this.city.country?', '+this.city.country:''}`);
+    this.status=el('div','api-status');searchWrap.append(input,results);this.body.append(label,searchWrap,selected,this.status);
+    input.addEventListener('input',()=>{clearTimeout(this.searchTimer);this.searchController?.abort();const q=input.value.trim();if(q.length<2){results.hidden=true;results.replaceChildren();return;}results.hidden=false;results.replaceChildren(el('p','muted','Ищем города…'));this.searchTimer=setTimeout(()=>this.search(q,results,input,selected),350);},{signal:this.controller.signal});
+    input.addEventListener('keydown',e=>{if(e.key==='Escape'){results.hidden=true;input.blur();}},{signal:this.controller.signal});
+    this.load();
+  }
+  async search(query,results,input,selected){
+    const controller=new AbortController();this.searchController=controller;
+    try{
+      const url='https://geocoding-api.open-meteo.com/v1/search?'+new URLSearchParams({name:query,count:'10',language:'ru',format:'json'});
+      const response=await fetch(url,{signal:controller.signal});if(!response.ok)throw new Error(`HTTP ${response.status}`);
+      const data=await response.json();if(controller.signal.aborted||!this.root||input.value.trim()!==query)return;
+      results.replaceChildren();const cities=Array.isArray(data.results)?data.results:[];
+      if(!cities.length){results.append(el('p','muted','Ничего не найдено. Уточните название.'));return;}
+      for(const city of cities){const btn=el('button','city-option',`${city.name}${city.admin1?', '+city.admin1:''} · ${city.country||''}`);btn.type='button';btn.addEventListener('click',()=>{this.city={name:city.name,country:city.country||'',latitude:city.latitude,longitude:city.longitude,id:city.id};selected.textContent=`📍 ${this.city.name}${this.city.country?', '+this.city.country:''}`;input.value='';results.hidden=true;results.replaceChildren();this.onChange();this.load();},{signal:this.controller.signal});results.append(btn);}
+    }catch(error){if(controller.signal.aborted||!this.root)return;results.replaceChildren(el('p','error-message','Поиск недоступен. Проверьте интернет.'));}
+  }
+  async load(){
+    this.requestController?.abort();const controller=new AbortController();this.requestController=controller;
+    this.status.replaceChildren(el('p','loading','Загружаем погоду…'));
+    const url='https://api.open-meteo.com/v1/forecast?'+new URLSearchParams({latitude:String(this.city.latitude),longitude:String(this.city.longitude),current:'temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m',timezone:'auto'});
+    try{const response=await fetch(url,{signal:controller.signal});if(!response.ok)throw new Error(`HTTP ${response.status}`);const data=await response.json();if(!data.current||!Number.isFinite(data.current.temperature_2m))throw new Error('Неверный формат ответа');if(controller.signal.aborted||!this.root)return;this.showWeather(data.current,data.current_units||{});}
+    catch(error){if(controller.signal.aborted||!this.root)return;this.showError(`Не удалось получить погоду: ${error.message}`);}
+  }
+  showWeather(current,units){
+    const info=CODES[current.weather_code]||['Погодные условия','🌡️'];const main=el('div','weather-main');main.append(el('strong','big-value',`${Math.round(current.temperature_2m)}${units.temperature_2m||'°C'}`),el('span','weather-symbol',info[1]));
+    this.status.replaceChildren(main,el('p','data-caption',info[0]));
+    const row=(name,value)=>{const r=el('div','data-row');r.append(el('span','',name),el('strong','',value));this.status.append(r);};
+    row('Ощущается',Number.isFinite(current.apparent_temperature)?`${Math.round(current.apparent_temperature)} °C`:'—');
+    row('Влажность',Number.isFinite(current.relative_humidity_2m)?`${current.relative_humidity_2m} %`:'—');
+    row('Ветер',Number.isFinite(current.wind_speed_10m)?`${current.wind_speed_10m} ${units.wind_speed_10m||'км/ч'}`:'—');
+    this.status.append(el('p','data-caption','Источник: Open-Meteo · текущие данные'));
+  }
+  showError(message){const btn=el('button','primary-button retry-button','↻ Повторить');btn.type='button';btn.addEventListener('click',()=>this.load(),{signal:this.controller.signal});this.status.replaceChildren(el('p','error-message',message),btn);}
+  serialize(){return {...super.serialize(),city:this.city};}
+  destroy(){clearTimeout(this.searchTimer);this.searchController?.abort();this.requestController?.abort();super.destroy();}
+}
+
+// js/widgets/CurrencyWidget.js
+const currencyEl=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;};
+const FALLBACK=[['EUR','Евро'],['USD','Доллар США']];
+class CurrencyWidget extends UIComponent {
+ constructor(id,onChange,onRemove,saved={}){saved ??= {};super(id,'Конвертер валют','currency','↗','Курсы и конвертация',onChange,onRemove);this.base=typeof (saved ?? {}).base==='string'?saved.base:'EUR';this.quote=typeof (saved ?? {}).quote==='string'?saved.quote:'USD';this.amount=Number.isFinite(Number((saved ?? {}).amount))&&Number((saved ?? {}).amount)>=0?Number((saved ?? {}).amount):100;this.requestController=null;this.listController=null;this.rate=null;this.rateDate='';this.currencies=[];}
+ renderContent(){
+   const amountLabel=currencyEl('label','field-label','СУММА');amountLabel.htmlFor=`amount-${this.id}`;
+   const amount=currencyEl('input','text-input currency-amount');amount.type='number';amount.min='0';amount.step='any';amount.inputMode='decimal';amount.id=amountLabel.htmlFor;amount.value=String(this.amount);
+   const pair=currencyEl('div','currency-controls');const from=currencyEl('select','currency-select');const swap=currencyEl('button','swap-button','⇄');swap.type='button';swap.title='Поменять валюты местами';swap.setAttribute('aria-label','Поменять валюты местами');const to=currencyEl('select','currency-select');pair.append(from,swap,to);
+   this.from=from;this.to=to;this.amountInput=amount;this.status=currencyEl('div','api-status');this.body.append(amountLabel,amount,pair,this.status);
+   amount.addEventListener('input',()=>{const n=Number(amount.value);this.amount=Number.isFinite(n)&&n>=0?n:0;this.onChange();this.showResult();},{signal:this.controller.signal});
+   from.addEventListener('change',()=>{this.base=from.value;this.onChange();this.loadRate();},{signal:this.controller.signal});
+   to.addEventListener('change',()=>{this.quote=to.value;this.onChange();this.loadRate();},{signal:this.controller.signal});
+   swap.addEventListener('click',()=>{[this.base,this.quote]=[this.quote,this.base];from.value=this.base;to.value=this.quote;this.onChange();this.loadRate();},{signal:this.controller.signal});
+   this.fillOptions(FALLBACK);this.loadCurrencies();
+ }
+ fillOptions(items){const codes=new Set(items.map(x=>x[0]));if(!codes.has(this.base))this.base='EUR';if(!codes.has(this.quote))this.quote='USD';for(const select of [this.from,this.to]){select.replaceChildren();for(const [code,name] of items){const option=currencyEl('option','',`${code} · ${name}`);option.value=code;select.append(option);}}this.from.value=this.base;this.to.value=this.quote;}
+ async loadCurrencies(){this.listController?.abort();const controller=new AbortController();this.listController=controller;this.status.replaceChildren(currencyEl('p','loading','Загружаем доступные валюты…'));
+   try{const response=await fetch('https://api.frankfurter.dev/v2/currencies',{signal:controller.signal});if(!response.ok)throw new Error(`HTTP ${response.status}`);const data=await response.json();if(!Array.isArray(data))throw new Error('Неверный список валют');const items=data.filter(x=>typeof x.iso_code==='string'&&typeof x.name==='string').map(x=>[x.iso_code,x.name]).sort((a,b)=>a[0].localeCompare(b[0]));if(items.length<2)throw new Error('Список валют пуст');if(controller.signal.aborted||!this.root)return;this.currencies=items;this.fillOptions(items);this.loadRate();}
+   catch(error){if(controller.signal.aborted||!this.root)return;this.status.replaceChildren(currencyEl('p','error-message',`Не удалось загрузить список валют: ${error.message}`));const retry=currencyEl('button','primary-button retry-button','↻ Повторить');retry.type='button';retry.addEventListener('click',()=>this.loadCurrencies(),{signal:this.controller.signal});this.status.append(retry);}
+ }
+ async loadRate(){this.requestController?.abort();const controller=new AbortController();this.requestController=controller;this.rate=null;this.status.replaceChildren(currencyEl('p','loading','Получаем актуальный курс…'));
+   if(this.base===this.quote){this.rate=1;this.rateDate='';this.showResult();return;}
+   try{const url='https://api.frankfurter.dev/v2/rates?'+new URLSearchParams({base:this.base,quotes:this.quote});const response=await fetch(url,{signal:controller.signal});if(!response.ok)throw new Error(`HTTP ${response.status}`);const data=await response.json();const item=Array.isArray(data)?data.find(x=>x.base===this.base&&x.quote===this.quote):null;if(!item||!Number.isFinite(item.rate)||item.rate<=0||typeof item.date!=='string')throw new Error('Неверный формат курса');if(controller.signal.aborted||!this.root)return;this.rate=item.rate;this.rateDate=item.date;this.showResult();}
+   catch(error){if(controller.signal.aborted||!this.root)return;this.status.replaceChildren(currencyEl('p','error-message',`Не удалось получить курс: ${error.message}`));const retry=currencyEl('button','primary-button retry-button','↻ Повторить');retry.type='button';retry.addEventListener('click',()=>this.loadRate(),{signal:this.controller.signal});this.status.append(retry);}
+ }
+ showResult(){if(this.rate===null)return;const format=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:4});const result=currencyEl('div','conversion-result');result.append(currencyEl('span','data-caption',`${format.format(this.amount)} ${this.base} =`),currencyEl('strong','big-value conversion-value',`${format.format(this.amount*this.rate)} ${this.quote}`));this.status.replaceChildren(result,currencyEl('div','data-row'));const row=this.status.lastChild;row.append(currencyEl('span','','Курс за 1 '+this.base),currencyEl('strong','',`${format.format(this.rate)} ${this.quote}`));this.status.append(currencyEl('p','data-caption',this.rateDate?`Дата курса: ${this.rateDate} · Frankfurter`:'Одинаковые валюты · курс 1:1'));}
+ serialize(){return {...super.serialize(),base:this.base,quote:this.quote,amount:this.amount};}
+ destroy(){this.listController?.abort();this.requestController?.abort();super.destroy();}
+}
+
+class ClockWidget extends UIComponent {
+  constructor(id,change,remove,saved={}) {super(id,'Мировое время','clock','◷','Часовые пояса мира',change,remove);this.zones=Array.isArray(saved?.zones)?saved.zones.filter(z=>typeof z==='string'&&ClockWidget.cities.some(c=>c.zone===z)).slice(0,8):['Europe/Tallinn','Europe/London','Asia/Tokyo'];this.timer=null;}
+  static cities=[{name:'Таллин',zone:'Europe/Tallinn'},{name:'Лондон',zone:'Europe/London'},{name:'Токио',zone:'Asia/Tokyo'},{name:'Нью-Йорк',zone:'America/New_York'},{name:'Париж',zone:'Europe/Paris'},{name:'Берлин',zone:'Europe/Berlin'},{name:'Москва',zone:'Europe/Moscow'},{name:'Дубай',zone:'Asia/Dubai'},{name:'Сеул',zone:'Asia/Seoul'},{name:'Сингапур',zone:'Asia/Singapore'},{name:'Сидней',zone:'Australia/Sydney'},{name:'Лос-Анджелес',zone:'America/Los_Angeles'},{name:'Рим',zone:'Europe/Rome'},{name:'Стамбул',zone:'Europe/Istanbul'},{name:'Бангкок',zone:'Asia/Bangkok'}];
+  renderContent(){const line=document.createElement('div');line.className='extra-line';const select=document.createElement('select');select.className='text-input';select.setAttribute('aria-label','Добавить город');for(const city of ClockWidget.cities){const opt=new Option(city.name,city.zone);select.add(opt);}const add=document.createElement('button');add.type='button';add.className='primary-button';add.textContent='+ Город';line.append(select,add);this.list=document.createElement('div');this.list.className='extra-list';this.body.append(line,this.list);add.addEventListener('click',()=>{if(this.zones.includes(select.value))return;this.zones.push(select.value);this.draw();this.onChange();},{signal:this.controller.signal});this.list.addEventListener('click',e=>{const b=e.target.closest('[data-zone]');if(!b)return;this.zones=this.zones.filter(z=>z!==b.dataset.zone);this.draw();this.onChange();},{signal:this.controller.signal});this.draw();this.timer=setInterval(()=>this.draw(),1000);}
+  draw(){if(!this.list)return;this.list.replaceChildren();for(const zone of this.zones){const city=ClockWidget.cities.find(c=>c.zone===zone);const row=document.createElement('div');row.className='extra-item';const left=document.createElement('div');const title=document.createElement('strong');title.textContent=city.name;const sub=document.createElement('small');sub.textContent=new Intl.DateTimeFormat('ru-RU',{timeZone:zone,weekday:'short',day:'numeric',month:'short'}).format(new Date());left.append(title,sub);const time=document.createElement('span');time.className='clock-time';time.textContent=new Intl.DateTimeFormat('ru-RU',{timeZone:zone,hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(new Date());const del=document.createElement('button');del.type='button';del.className='task-delete';del.dataset.zone=zone;del.textContent='×';del.setAttribute('aria-label','Убрать '+city.name);row.append(left,time,del);this.list.append(row);}if(!this.zones.length){const p=document.createElement('p');p.className='muted';p.textContent='Добавьте город, чтобы увидеть время.';this.list.append(p);}}
+  serialize(){return {...super.serialize(),zones:this.zones};}destroy(){clearInterval(this.timer);super.destroy();}
+}
+class PackingWidget extends UIComponent {
+  constructor(id,change,remove,saved={}){super(id,'Чемодан','packing','▣','Собираемся без суеты',change,remove);this.items=Array.isArray(saved?.items)?saved.items.filter(i=>i&&typeof i.text==='string').slice(0,300).map(i=>({id:String(i.id),text:i.text.slice(0,120),done:!!i.done,category:String(i.category||'Другое')})):[];}
+  renderContent(){const form=document.createElement('form');form.className='extra-form';const input=document.createElement('input');input.className='text-input';input.placeholder='Например, паспорт';input.maxLength=120;input.required=true;const category=document.createElement('select');category.className='text-input';for(const name of ['Документы','Одежда','Техника','Гигиена','Другое'])category.add(new Option(name,name));const add=document.createElement('button');add.className='primary-button';add.textContent='+ Вещь';form.append(input,category,add);this.list=document.createElement('div');this.list.className='extra-list';this.progress=document.createElement('p');this.progress.className='todo-summary';this.body.append(form,this.progress,this.list);form.addEventListener('submit',e=>{e.preventDefault();const text=input.value.trim();if(!text)return;this.items.push({id:crypto.randomUUID?.()||String(Date.now()+Math.random()),text,category:category.value,done:false});input.value='';this.draw();this.onChange();},{signal:this.controller.signal});this.list.addEventListener('change',e=>{const item=this.items.find(i=>i.id===e.target.dataset.check);if(item){item.done=e.target.checked;this.draw();this.onChange();}},{signal:this.controller.signal});this.list.addEventListener('click',e=>{const b=e.target.closest('[data-delete]');if(!b)return;this.items=this.items.filter(i=>i.id!==b.dataset.delete);this.draw();this.onChange();},{signal:this.controller.signal});this.draw();}
+  draw(){this.list.replaceChildren();this.progress.textContent=`Собрано ${this.items.filter(i=>i.done).length} из ${this.items.length}`;for(const category of ['Документы','Одежда','Техника','Гигиена','Другое']){const items=this.items.filter(i=>i.category===category);if(!items.length)continue;const head=document.createElement('h4');head.className='extra-group';head.textContent=category;this.list.append(head);for(const item of items){const row=document.createElement('label');row.className='extra-item';const check=document.createElement('input');check.type='checkbox';check.checked=item.done;check.dataset.check=item.id;const text=document.createElement('span');text.className=item.done?'packed':'';text.textContent=item.text;const del=document.createElement('button');del.type='button';del.className='task-delete';del.dataset.delete=item.id;del.textContent='×';del.setAttribute('aria-label','Удалить '+item.text);row.append(check,text,del);this.list.append(row);}}if(!this.items.length){const p=document.createElement('p');p.className='muted';p.textContent='Добавьте первую вещь в чемодан.';this.list.append(p);}}
+  serialize(){return {...super.serialize(),items:this.items};}
+}
+class TripsWidget extends UIComponent {
+  constructor(id,change,remove,saved={}){super(id,'Календарь поездок','trips','▦','Ближайшие путешествия',change,remove);this.trips=Array.isArray(saved?.trips)?saved.trips.filter(t=>t&&typeof t.name==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(t.date||'')).slice(0,100):[];}
+  renderContent(){const form=document.createElement('form');form.className='extra-form';const name=document.createElement('input');name.className='text-input';name.placeholder='Куда едем?';name.maxLength=100;name.required=true;const date=document.createElement('input');date.type='date';date.className='text-input';date.required=true;const note=document.createElement('input');note.className='text-input';note.placeholder='Заметка (необязательно)';note.maxLength=160;const add=document.createElement('button');add.className='primary-button';add.textContent='+ Поездка';form.append(name,date,note,add);this.list=document.createElement('div');this.list.className='extra-list';this.body.append(form,this.list);form.addEventListener('submit',e=>{e.preventDefault();if(!name.value.trim()||!date.value)return;this.trips.push({id:crypto.randomUUID?.()||String(Date.now()+Math.random()),name:name.value.trim(),date:date.value,note:note.value.trim()});name.value='';note.value='';this.draw();this.onChange();},{signal:this.controller.signal});this.list.addEventListener('click',e=>{const b=e.target.closest('[data-delete]');if(!b)return;this.trips=this.trips.filter(t=>t.id!==b.dataset.delete);this.draw();this.onChange();},{signal:this.controller.signal});this.draw();}
+  draw(){this.list.replaceChildren();for(const trip of [...this.trips].sort((a,b)=>a.date.localeCompare(b.date))){const row=document.createElement('div');row.className='extra-item';const info=document.createElement('div');const title=document.createElement('strong');title.textContent=trip.name;const sub=document.createElement('small');const date=new Date(trip.date+'T12:00:00');const today=new Date();today.setHours(0,0,0,0);const days=Math.round((new Date(trip.date+'T00:00:00')-today)/86400000);sub.textContent=`${date.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})} · ${days>0?'через '+days+' дн.':days===0?'сегодня':'прошла'}`;info.append(title,sub);if(trip.note){const note=document.createElement('small');note.textContent=trip.note;info.append(note);}const del=document.createElement('button');del.type='button';del.className='task-delete';del.dataset.delete=trip.id;del.textContent='×';del.setAttribute('aria-label','Удалить поездку '+trip.name);row.append(info,del);this.list.append(row);}if(!this.trips.length){const p=document.createElement('p');p.className='muted';p.textContent='Запланируйте первую поездку.';this.list.append(p);}}
+  serialize(){return {...super.serialize(),trips:this.trips};}
+}
+class PlacesWidget extends UIComponent {
+  constructor(id,change,remove,saved={}){super(id,'Мои путешествия','places','◎','Посещённые места',change,remove);this.places=Array.isArray(saved?.places)?saved.places.filter(p=>p&&typeof p.city==='string').slice(0,300):[];}
+  renderContent(){const form=document.createElement('form');form.className='extra-form';const city=document.createElement('input');city.className='text-input';city.placeholder='Город';city.required=true;city.maxLength=90;const country=document.createElement('input');country.className='text-input';country.placeholder='Страна';country.required=true;country.maxLength=90;const note=document.createElement('input');note.className='text-input';note.placeholder='Впечатления';note.maxLength=160;const add=document.createElement('button');add.className='primary-button';add.textContent='+ Место';form.append(city,country,note,add);this.summary=document.createElement('p');this.summary.className='todo-summary';this.list=document.createElement('div');this.list.className='extra-list';this.body.append(form,this.summary,this.list);form.addEventListener('submit',e=>{e.preventDefault();if(!city.value.trim()||!country.value.trim())return;this.places.push({id:crypto.randomUUID?.()||String(Date.now()+Math.random()),city:city.value.trim(),country:country.value.trim(),note:note.value.trim()});city.value='';country.value='';note.value='';this.draw();this.onChange();},{signal:this.controller.signal});this.list.addEventListener('click',e=>{const b=e.target.closest('[data-delete]');if(!b)return;this.places=this.places.filter(p=>p.id!==b.dataset.delete);this.draw();this.onChange();},{signal:this.controller.signal});this.draw();}
+  draw(){this.list.replaceChildren();const countries=new Set(this.places.map(p=>p.country.trim().toLocaleLowerCase('ru-RU')));this.summary.textContent=`Посещено городов: ${this.places.length} · стран: ${countries.size}`;for(const place of this.places){const row=document.createElement('div');row.className='extra-item';const info=document.createElement('div');const title=document.createElement('strong');title.textContent=`${place.city}, ${place.country}`;info.append(title);if(place.note){const note=document.createElement('small');note.textContent=place.note;info.append(note);}const del=document.createElement('button');del.type='button';del.className='task-delete';del.dataset.delete=place.id;del.textContent='×';del.setAttribute('aria-label','Удалить '+place.city);row.append(info,del);this.list.append(row);}if(!this.places.length){const p=document.createElement('p');p.className='muted';p.textContent='Добавьте места, где уже побывали.';this.list.append(p);}}
+  serialize(){return {...super.serialize(),places:this.places};}
+}
+
+// js/Dashboard.js
+
+const STORAGE_KEY = 'waypoint-dashboard-v3';
+const PREVIOUS_KEY = 'waypoint-dashboard-v2';
+const OLD_KEY = 'waypoint-dashboard-v1';
+const TYPES = ['todo', 'weather', 'currency', 'clock', 'packing', 'trips', 'places'];
+
+class Dashboard {
+  constructor(container, announcement, count, emptyState) {
+    this.container = container;
+    this.announcement = announcement;
+    this.count = count;
+    this.emptyState = emptyState;
+    this.widgets = new Map();
+    this.setupDrag();
+    this.restoring = true;
+    this.restore();
+    this.restoring = false;
+    this.save();
+  }
+
+  notify(message) { this.announcement.textContent = message; }
+
+  addWidget(type, saved = null) {
+    if (!TYPES.includes(type)) { this.notify('Неизвестный тип виджета.'); return false; }
+    this.pruneMissingWidgets();
+    const existing = [...this.widgets.values()].find(widget => widget.type === type);
+    if (existing) {
+      // Кнопка валют всегда восстанавливает карточку, даже при повреждённом состоянии.
+      if (type === 'currency' && !saved) {
+        const snapshot = existing.serialize();
+        this.widgets.delete(existing.id);
+        existing.destroy();
+        return this.addWidget(type, { ...snapshot, collapsed: false });
+      }
+      existing.setCollapsed(false);
+      existing.root?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      this.notify(`Виджет «${existing.title}» уже открыт на панели.`);
+      return false;
+    }
+    const id = saved && typeof saved.id === 'string' && saved.id.length < 100 ? saved.id : (globalThis.crypto?.randomUUID?.() || `w-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    if (this.widgets.has(id)) return false;
+    const onChange = () => this.save();
+    const onRemove = widgetId => this.removeWidget(widgetId);
+    let widget;
+    if (type === 'todo') widget = new ToDoWidget(id, onChange, onRemove, saved?.tasks);
+    if (type === 'weather') widget = new WeatherWidget(id, onChange, onRemove, saved?.city);
+    if (type === 'currency') widget = new CurrencyWidget(id, onChange, onRemove, saved);
+    if (type === 'clock') widget = new ClockWidget(id, onChange, onRemove, saved);
+    if (type === 'packing') widget = new PackingWidget(id, onChange, onRemove, saved);
+    if (type === 'trips') widget = new TripsWidget(id, onChange, onRemove, saved);
+    if (type === 'places') widget = new PlacesWidget(id, onChange, onRemove, saved);
+    this.widgets.set(id, widget);
+    try { this.container.append(widget.render()); } catch (error) { this.widgets.delete(id); widget.destroy(); this.notify('Не удалось открыть виджет: '+error.message); console.error(error); return false; }
+    widget.root.draggable = true;
+    widget.root.querySelector('.widget-header').title = 'Перетащите карточку за заголовок';
+    if (saved?.collapsed) widget.setCollapsed(true, false);
+    this.updateView();
+    this.save();
+    if (!saved) this.notify(`Виджет «${widget.title}» добавлен.`);
+    return true;
+  }
+
+  removeWidget(id) {
+    const widget = this.widgets.get(id);
+    if (!widget) return;
+    this.widgets.delete(id);
+    widget.destroy();
+    this.updateView();
+    this.save();
+    this.notify(`Виджет «${widget.title}» удалён. Его можно добавить снова.`);
+  }
+
+  setupDrag() {
+    let dragging = null;
+    this.container.addEventListener('dragstart', event => {
+      const card = event.target.closest('.widget');
+      if (!card || event.target.closest('button, input, select')) { event.preventDefault(); return; }
+      dragging = card;
+      card.classList.add('dragging');
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', card.dataset.id);
+    });
+    this.container.addEventListener('dragover', event => {
+      if (!dragging) return;
+      event.preventDefault();
+      const target = event.target.closest('.widget');
+      if (!target || target === dragging) return;
+      const rect = target.getBoundingClientRect();
+      const before = event.clientY < rect.top + rect.height / 2 || (Math.abs(event.clientY - (rect.top + rect.height / 2)) < rect.height / 2 && event.clientX < rect.left + rect.width / 2);
+      this.container.insertBefore(dragging, before ? target : target.nextSibling);
+    });
+    this.container.addEventListener('drop', event => {if (dragging) {event.preventDefault(); this.reorder();}});
+    this.container.addEventListener('dragend', () => {dragging?.classList.remove('dragging');dragging=null;this.reorder();});
+  }
+
+  reorder() {
+    const order = [...this.container.children].map(el => el.dataset.id);
+    const ordered = order.filter(id => this.widgets.has(id)).map(id => [id, this.widgets.get(id)]);
+    const remaining = [...this.widgets].filter(([id]) => !order.includes(id));
+    this.widgets = new Map([...ordered, ...remaining]);
+    this.save();
+  }
+
+  pruneMissingWidgets() {
+    for (const [id, widget] of this.widgets) {
+      if (!widget.root || !this.container.contains(widget.root)) {
+        this.widgets.delete(id);
+        widget.destroy();
+      }
+    }
+    this.updateView();
+  }
+
+  updateView() {
+    this.count.textContent = String(this.widgets.size);
+    this.emptyState.hidden = this.widgets.size > 0;
+  }
+
+  save() {
+    if (this.restoring) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([...this.widgets.values()].map(w => w.serialize())));
+    } catch (error) {
+      this.notify('Браузер запретил сохранение. Данные останутся до обновления страницы.');
+      console.warn('Не удалось сохранить панель:', error);
+    }
+  }
+
+  restore() {
+    let saved;
+    try {
+      const current = localStorage.getItem(STORAGE_KEY);
+      const raw = current ?? localStorage.getItem(PREVIOUS_KEY) ?? localStorage.getItem(OLD_KEY);
+      this.migrating = current === null;
+      saved = raw === null ? null : JSON.parse(raw);
+    } catch (error) {
+      this.notify('Сохранённые данные повреждены или недоступны. Открыта стандартная панель.');
+      console.warn('Не удалось восстановить панель:', error);
+      saved = null;
+    }
+    const items = Array.isArray(saved) ? saved.slice() : TYPES.map(type => ({ type }));
+    // Однократно возвращаем валютный виджет, потерянный в старой версии.
+    // В дальнейшем пользователь может удалить его намеренно.
+    if (this.migrating && !items.some(item => item?.type === 'currency')) {
+      items.push({ type: 'currency' });
+    }
+    for (const item of items) {
+      if (item && typeof item === 'object' && TYPES.includes(item.type)) this.addWidget(item.type, item);
+    }
+    this.updateView();
+    this.save();
+  }
+
+  reset() {
+    for (const widget of this.widgets.values()) widget.destroy();
+    this.widgets.clear();
+    for (const type of TYPES) this.addWidget(type, { type });
+    this.notify('Панель восстановлена. Предыдущие задачи удалены.');
+  }
+}
+
+
+// js/main.js
+
+const dashboard = new Dashboard(
+  document.querySelector('#dashboard'),
+  document.querySelector('#announcement'),
+  document.querySelector('#widget-count'),
+  document.querySelector('#empty-state')
+);
+
+document.querySelectorAll('[data-add]').forEach(button => {
+  button.addEventListener('click', () => {
+    dashboard.addWidget(button.dataset.add);
+    if (button.dataset.add === 'currency') {
+      const card = document.querySelector('.widget[data-type="currency"]');
+      card?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  });
+});
+
+document.querySelector('#reset-dashboard').addEventListener('click', () => {
+  if (window.confirm('Восстановить все виджеты? Сохранённые задачи будут удалены.')) dashboard.reset();
+});
+</script>
+</body>
+</html>

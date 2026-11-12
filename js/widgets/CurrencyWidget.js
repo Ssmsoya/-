@@ -1,0 +1,30 @@
+import { UIComponent } from '../UIComponent.js';
+const currencyEl=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;};
+const FALLBACK=[['EUR','Евро'],['USD','Доллар США']];
+export class CurrencyWidget extends UIComponent {
+ constructor(id,onChange,onRemove,saved={}){saved ??= {};super(id,'Конвертер валют','currency','↗','Курсы и конвертация',onChange,onRemove);this.base=typeof (saved ?? {}).base==='string'?saved.base:'EUR';this.quote=typeof (saved ?? {}).quote==='string'?saved.quote:'USD';this.amount=Number.isFinite(Number((saved ?? {}).amount))&&Number((saved ?? {}).amount)>=0?Number((saved ?? {}).amount):100;this.requestController=null;this.listController=null;this.rate=null;this.rateDate='';this.currencies=[];}
+ renderContent(){
+   const amountLabel=currencyEl('label','field-label','СУММА');amountLabel.htmlFor=`amount-${this.id}`;
+   const amount=currencyEl('input','text-input currency-amount');amount.type='number';amount.min='0';amount.step='any';amount.inputMode='decimal';amount.id=amountLabel.htmlFor;amount.value=String(this.amount);
+   const pair=currencyEl('div','currency-controls');const from=currencyEl('select','currency-select');const swap=currencyEl('button','swap-button','⇄');swap.type='button';swap.title='Поменять валюты местами';swap.setAttribute('aria-label','Поменять валюты местами');const to=currencyEl('select','currency-select');pair.append(from,swap,to);
+   this.from=from;this.to=to;this.amountInput=amount;this.status=currencyEl('div','api-status');this.body.append(amountLabel,amount,pair,this.status);
+   amount.addEventListener('input',()=>{const n=Number(amount.value);this.amount=Number.isFinite(n)&&n>=0?n:0;this.onChange();this.showResult();},{signal:this.controller.signal});
+   from.addEventListener('change',()=>{this.base=from.value;this.onChange();this.loadRate();},{signal:this.controller.signal});
+   to.addEventListener('change',()=>{this.quote=to.value;this.onChange();this.loadRate();},{signal:this.controller.signal});
+   swap.addEventListener('click',()=>{[this.base,this.quote]=[this.quote,this.base];from.value=this.base;to.value=this.quote;this.onChange();this.loadRate();},{signal:this.controller.signal});
+   this.fillOptions(FALLBACK);this.loadCurrencies();
+ }
+ fillOptions(items){const codes=new Set(items.map(x=>x[0]));if(!codes.has(this.base))this.base='EUR';if(!codes.has(this.quote))this.quote='USD';for(const select of [this.from,this.to]){select.replaceChildren();for(const [code,name] of items){const option=currencyEl('option','',`${code} · ${name}`);option.value=code;select.append(option);}}this.from.value=this.base;this.to.value=this.quote;}
+ async loadCurrencies(){this.listController?.abort();const controller=new AbortController();this.listController=controller;this.status.replaceChildren(currencyEl('p','loading','Загружаем доступные валюты…'));
+   try{const response=await fetch('https://api.frankfurter.dev/v2/currencies',{signal:controller.signal});if(!response.ok)throw new Error(`HTTP ${response.status}`);const data=await response.json();if(!Array.isArray(data))throw new Error('Неверный список валют');const items=data.filter(x=>typeof x.iso_code==='string'&&typeof x.name==='string').map(x=>[x.iso_code,x.name]).sort((a,b)=>a[0].localeCompare(b[0]));if(items.length<2)throw new Error('Список валют пуст');if(controller.signal.aborted||!this.root)return;this.currencies=items;this.fillOptions(items);this.loadRate();}
+   catch(error){if(controller.signal.aborted||!this.root)return;this.status.replaceChildren(currencyEl('p','error-message',`Не удалось загрузить список валют: ${error.message}`));const retry=currencyEl('button','primary-button retry-button','↻ Повторить');retry.type='button';retry.addEventListener('click',()=>this.loadCurrencies(),{signal:this.controller.signal});this.status.append(retry);}
+ }
+ async loadRate(){this.requestController?.abort();const controller=new AbortController();this.requestController=controller;this.rate=null;this.status.replaceChildren(currencyEl('p','loading','Получаем актуальный курс…'));
+   if(this.base===this.quote){this.rate=1;this.rateDate='';this.showResult();return;}
+   try{const url='https://api.frankfurter.dev/v2/rates?'+new URLSearchParams({base:this.base,quotes:this.quote});const response=await fetch(url,{signal:controller.signal});if(!response.ok)throw new Error(`HTTP ${response.status}`);const data=await response.json();const item=Array.isArray(data)?data.find(x=>x.base===this.base&&x.quote===this.quote):null;if(!item||!Number.isFinite(item.rate)||item.rate<=0||typeof item.date!=='string')throw new Error('Неверный формат курса');if(controller.signal.aborted||!this.root)return;this.rate=item.rate;this.rateDate=item.date;this.showResult();}
+   catch(error){if(controller.signal.aborted||!this.root)return;this.status.replaceChildren(currencyEl('p','error-message',`Не удалось получить курс: ${error.message}`));const retry=currencyEl('button','primary-button retry-button','↻ Повторить');retry.type='button';retry.addEventListener('click',()=>this.loadRate(),{signal:this.controller.signal});this.status.append(retry);}
+ }
+ showResult(){if(this.rate===null)return;const format=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:4});const result=currencyEl('div','conversion-result');result.append(currencyEl('span','data-caption',`${format.format(this.amount)} ${this.base} =`),currencyEl('strong','big-value conversion-value',`${format.format(this.amount*this.rate)} ${this.quote}`));this.status.replaceChildren(result,currencyEl('div','data-row'));const row=this.status.lastChild;row.append(currencyEl('span','','Курс за 1 '+this.base),currencyEl('strong','',`${format.format(this.rate)} ${this.quote}`));this.status.append(currencyEl('p','data-caption',this.rateDate?`Дата курса: ${this.rateDate} · Frankfurter`:'Одинаковые валюты · курс 1:1'));}
+ serialize(){return {...super.serialize(),base:this.base,quote:this.quote,amount:this.amount};}
+ destroy(){this.listController?.abort();this.requestController?.abort();super.destroy();}
+}
